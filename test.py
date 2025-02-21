@@ -1,65 +1,56 @@
 import re
 import tkinter as tk
-from tkinter import scrolledtext
-from tkinter import messagebox
+from tkinter import scrolledtext, messagebox
 
 # -----------------------------------------------------------------------------
-# 1) TOKEN DEFINITION
+# 1) TOKEN DEFINITIONS
 # -----------------------------------------------------------------------------
-
 TOKEN_SPECIFICATIONS = [
-    # (regex_pattern, token_type)
-    (r'//.*',            'COMMENT'),       # Single-line comment
-    (r'\bprogram\b',     'PROGRAM'),       # program keyword
-    (r'\bend_program\b', 'END_PROGRAM'),   # end_program keyword
-    (r'\bif\b',          'IF'),            # if keyword
-    (r'\bend_if\b',      'END_IF'),        # end_if keyword
-    (r'\bloop\b',        'LOOP'),          # loop keyword
-    (r'\bend_loop\b',    'END_LOOP'),      # end_loop keyword
-    (r'\b[0-9]+\b',      'NUMBER'),        # Numeric literal
-    (r'\b[a-zA-Z]\w*\b', 'IDENTIFIER'),    # Alphanumeric identifier (not starting with digit)
-    (r'==',              'EQ'),            # ==
-    (r'!=',              'NEQ'),           # !=
-    (r'>=',              'GE'),            # >=
-    (r'<=',              'LE'),            # <=
-    (r'>',               'GT'),            # >
-    (r'<',               'LT'),            # <
-    (r'\+\+',            'INC'),           # Not in spec, but just an example (if needed)
-    (r'\+',              'PLUS'),          # +
-    (r'-',               'MINUS'),         # -
-    (r'\*',              'MUL'),           # *
-    (r'/',               'DIV'),           # /
-    (r'%',               'MOD'),           # %
-    (r'&&',              'AND'),           # &&
-    (r'\|\|',            'OR'),            # ||
-    (r'=',               'ASSIGN'),        # =
-    (r'\(',              'LPAREN'),        # (
-    (r'\)',              'RPAREN'),        # )
-    (r':',               'COLON'),         # :
-    (r';',               'SEMICOLON'),     # ;
-    (r'\s+',             None),            # Whitespace (no token returned)
+    (r'//.*',             'COMMENT'),       # Single-line comment
+    (r'\bprogram\b',      'PROGRAM'),       # 'program'
+    (r'\bend_program\b',  'END_PROGRAM'),   # 'end_program'
+    (r'\bif\b',           'IF'),            # 'if'
+    (r'\bend_if\b',       'END_IF'),        # 'end_if'
+    (r'\bloop\b',         'LOOP'),          # 'loop'
+    (r'\bend_loop\b',     'END_LOOP'),      # 'end_loop'
+    (r'\b[0-9]+\b',       'NUMBER'),        # Numeric literal
+    (r'\b[a-zA-Z]\w*\b',  'IDENTIFIER'),    # Alphanumeric identifier
+    (r'==',               'EQ'),            # ==
+    (r'!=',               'NEQ'),           # !=
+    (r'>=',               'GE'),            # >=
+    (r'<=',               'LE'),            # <=
+    (r'>',                'GT'),            # >
+    (r'<',                'LT'),            # <
+    (r'\+',               'PLUS'),          # +
+    (r'-',                'MINUS'),         # -
+    (r'\*',               'MUL'),           # *
+    (r'/',                'DIV'),           # /
+    (r'%',                'MOD'),           # %
+    (r'&&',               'AND'),           # &&
+    (r'\|\|',             'OR'),            # ||
+    (r'=',                'ASSIGN'),        # =
+    (r'\(',               'LPAREN'),        # (
+    (r'\)',               'RPAREN'),        # )
+    (r':',                'COLON'),         # :
+    (r';',                'SEMICOLON'),     # ;
+    (r'\s+',              None),            # Whitespace (ignore)
 ]
 
 class Token:
-    """
-    A simple Token structure with type and value.
-    """
+    """Simple token with type, value, and position."""
     def __init__(self, ttype, value, position):
         self.type = ttype
         self.value = value
-        self.position = position  # (line, column) or character index
+        self.position = position
 
     def __repr__(self):
         return f"Token({self.type}, {self.value}, pos={self.position})"
 
 # -----------------------------------------------------------------------------
-# 2) LEXER IMPLEMENTATION
+# 2) LEXER
 # -----------------------------------------------------------------------------
-
 class Lexer:
-    """
-    A simple regex-based lexer for the specified language.
-    """
+    """Regex-based lexer generating a list of tokens from input text."""
     def __init__(self, text):
         self.text = text
         self.tokens = []
@@ -67,8 +58,6 @@ class Lexer:
         self.create_tokens()
 
     def create_tokens(self):
-        # Combine all token regexes into one big pattern with named capture groups or just sequentially.
-        # We'll apply them in a loop, scanning from left to right.
         idx = 0
         while idx < len(self.text):
             match_found = False
@@ -78,25 +67,22 @@ class Lexer:
                 if match:
                     match_text = match.group(0)
                     if token_type and token_type != 'COMMENT':
-                        # We'll store non-ignored tokens
                         self.tokens.append(Token(token_type, match_text, idx))
                     idx += len(match_text)
                     match_found = True
                     break
+
             if not match_found:
-                # Unknown or illegal token
                 raise ValueError(f"Illegal character at index {idx}: '{self.text[idx]}'")
-        # Append an end-of-input marker if desired
+
         self.tokens.append(Token('EOF', 'EOF', idx))
 
     def peek(self):
-        """ Look at the current token without consuming it. """
         if self.position < len(self.tokens):
             return self.tokens[self.position]
         return None
 
     def advance(self):
-        """ Consume and return the current token, then advance position. """
         token = self.peek()
         self.position += 1
         return token
@@ -106,40 +92,50 @@ class Lexer:
 # -----------------------------------------------------------------------------
 
 class ParserError(Exception):
-    """Custom exception for parser errors."""
     pass
 
 class Parser:
     """
-    Recursive Descent Parser that uses the tokens generated by the Lexer.
-    We'll build an Abstract Syntax Tree (AST) or just parse to confirm correctness.
+    Grammar:
+    
+    program       -> 'program' statements 'end_program'
+    statements    -> { statement }
+    statement     -> assignment ';' | if_statement | loop_statement
+    assignment    -> IDENTIFIER '=' expression
+    if_statement  -> 'if' '(' logic_expr ')' statements 'end_if'
+    loop_statement-> 'loop' '(' IDENTIFIER '=' (IDENTIFIER|NUMBER) ':' (IDENTIFIER|NUMBER) ')' statements 'end_loop'
+    
+    logic_expr    -> comparison { ('&&' | '||') comparison }
+    comparison    -> (IDENTIFIER|NUMBER) (==|!=|>|<|>=|<=) (IDENTIFIER|NUMBER)
+    
+    expression    -> term { ('+' | '-') term }
+    term          -> factor { ('*' | '/' | '%') factor }
+    factor        -> '(' expression ')' | IDENTIFIER | NUMBER
     """
     def __init__(self, lexer):
         self.lexer = lexer
         self.current_token = self.lexer.peek()
 
     def error(self, message):
-        raise ParserError(f"Parser error at position {self.current_token.position}: {message}")
+        pos = self.current_token.position if self.current_token else -1
+        raise ParserError(f"Parser error at position {pos}: {message}")
 
     def eat(self, token_type):
-        # Ensure current token matches token_type, then move to the next
         if self.current_token.type == token_type:
             self.current_token = self.lexer.advance()
         else:
-            self.error(f"Expected token type {token_type} but got {self.current_token.type}")
+            self.error(f"Expected token type '{token_type}' but got '{self.current_token.type}'")
 
     def parse(self):
         """
-        Entry point: parse a 'program' structure as per grammar:
-        PROGRAM -> 'program' STATEMENTS 'end_program'
+        Parse the entire source code as a single 'program'.
         """
         self.parseProgram()
-        # If we didn't consume the entire token stream, there might be trailing garbage
         if self.current_token.type != 'EOF':
-            self.error("Extra tokens after end of program.")
-        return True  # If no error was raised, parsing was successful
+            self.error("Extra tokens after 'end_program'.")
+        return True
 
-    # Grammar production: program -> 'program' STATEMENTS 'end_program'
+    # program -> 'program' statements 'end_program'
     def parseProgram(self):
         if self.current_token.type == 'PROGRAM':
             self.eat('PROGRAM')
@@ -149,21 +145,18 @@ class Parser:
             else:
                 self.error("Missing 'end_program' at the end.")
         else:
-            self.error("Program must start with 'program'")
+            self.error("Program must start with 'program'.")
 
     # statements -> { statement }
     def parseStatements(self):
-        # parse zero or more statements until we see 'end_program', 'END_IF', 'END_LOOP' or 'EOF'
-        # because those tokens can signal the end of a statement block
-        stop_types = {'END_PROGRAM', 'END_IF', 'END_LOOP', 'EOF'}
-        while self.current_token.type not in stop_types:
+        stop_tokens = {'END_PROGRAM', 'END_IF', 'END_LOOP', 'EOF'}
+        while self.current_token.type not in stop_tokens:
             self.parseStatement()
 
     # statement -> assignment ';' | if_statement | loop_statement
     def parseStatement(self):
         ttype = self.current_token.type
         if ttype == 'IDENTIFIER':
-            # This must be an assignment: <identifier> '=' expression ';'
             self.parseAssignment()
             self.eat('SEMICOLON')
         elif ttype == 'IF':
@@ -171,12 +164,10 @@ class Parser:
         elif ttype == 'LOOP':
             self.parseLoopStatement()
         else:
-            self.error(f"Unexpected token in statement: {ttype}")
+            self.error(f"Unexpected token in statement '{self.current_token.value}'")
 
-    # assignment -> identifier '=' expression
+    # assignment -> IDENTIFIER '=' expression
     def parseAssignment(self):
-        # We assume we've already seen an 'IDENTIFIER'
-        var_token = self.current_token
         self.eat('IDENTIFIER')
         self.eat('ASSIGN')
         self.parseExpression()
@@ -190,11 +181,11 @@ class Parser:
         self.parseStatements()
         self.eat('END_IF')
 
-    # loop_statement -> 'loop' '(' identifier '=' (identifier|number) ':' (identifier|number) ')' statements 'end_loop'
+    # loop_statement -> 'loop' '(' IDENTIFIER '=' (IDENTIFIER|NUMBER) ':' (IDENTIFIER|NUMBER) ')' statements 'end_loop'
     def parseLoopStatement(self):
         self.eat('LOOP')
         self.eat('LPAREN')
-        self.eat('IDENTIFIER')  # loop variable
+        self.eat('IDENTIFIER')
         self.eat('ASSIGN')
         if self.current_token.type in ('IDENTIFIER', 'NUMBER'):
             self.eat(self.current_token.type)
@@ -216,7 +207,7 @@ class Parser:
             self.eat(self.current_token.type)
             self.parseComparison()
 
-    # comparison -> (IDENTIFIER|NUMBER) ( '==' | '!=' | '>' | '<' | '>=' | '<=' ) (IDENTIFIER|NUMBER)
+    # comparison -> (IDENTIFIER|NUMBER) (==|!=|>|<|>=|<=) (IDENTIFIER|NUMBER)
     def parseComparison(self):
         if self.current_token.type not in ('IDENTIFIER','NUMBER'):
             self.error("Expected IDENTIFIER or NUMBER in comparison.")
@@ -230,7 +221,7 @@ class Parser:
             self.error("Expected IDENTIFIER or NUMBER in comparison.")
         self.eat(self.current_token.type)
 
-    # expression -> term { ('+'|'-') term }
+    # expression -> term { ('+' | '-') term }
     def parseExpression(self):
         self.parseTerm()
         while self.current_token.type in ('PLUS','MINUS'):
@@ -259,44 +250,42 @@ class Parser:
 # -----------------------------------------------------------------------------
 # 4) TKINTER GUI
 # -----------------------------------------------------------------------------
-
 class ParserGUI:
     def __init__(self, master):
         self.master = master
-        self.master.title("Simple Recursive Descent Parser GUI")
+        self.master.title("Recursive Descent Parser")
 
-        # Text area for input
-        self.text_area = scrolledtext.ScrolledText(master, wrap=tk.WORD, width=60, height=20)
+        # Text area
+        self.text_area = scrolledtext.ScrolledText(master, wrap=tk.WORD, width=60, height=15)
         self.text_area.pack(padx=10, pady=10)
 
-        # Frame for buttons
+        # Buttons
         button_frame = tk.Frame(master)
-        button_frame.pack(pady=5)
+        button_frame.pack()
 
-        self.parse_button = tk.Button(button_frame, text="Parse", command=self.parse_input)
-        self.parse_button.pack(side=tk.LEFT, padx=5)
+        parse_button = tk.Button(button_frame, text="Parse", command=self.on_parse)
+        parse_button.pack(side=tk.LEFT, padx=5)
 
-        self.clear_button = tk.Button(button_frame, text="Clear", command=self.clear_text)
-        self.clear_button.pack(side=tk.LEFT, padx=5)
+        clear_button = tk.Button(button_frame, text="Clear", command=self.on_clear)
+        clear_button.pack(side=tk.LEFT, padx=5)
 
-    def parse_input(self):
+    def on_parse(self):
         source_code = self.text_area.get("1.0", tk.END)
         try:
             lexer = Lexer(source_code)
             parser = Parser(lexer)
-            parser.parse()
-            messagebox.showinfo("Result", "Parsing succeeded! No errors found.")
+            parser.parse()  # <<< KEY: we call parse() at the top-level
+            messagebox.showinfo("Result", "Parsing succeeded! No errors.")
         except (ParserError, ValueError) as e:
             messagebox.showerror("Error", str(e))
 
-    def clear_text(self):
+    def on_clear(self):
         self.text_area.delete("1.0", tk.END)
 
 # -----------------------------------------------------------------------------
-# Main entry point
+# 5) MAIN
 # -----------------------------------------------------------------------------
-
 if __name__ == "__main__":
     root = tk.Tk()
-    gui = ParserGUI(root)
+    app = ParserGUI(root)
     root.mainloop()
