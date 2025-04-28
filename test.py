@@ -124,7 +124,7 @@ class Parser:
         pos = self.current_token.position if self.current_token else -1
         raise ParserError(f"Parser error at position {pos}: {message}")
 
-    def eat(self, token_type):
+    def consume(self, token_type):
         if self.current_token.type == token_type:
             # Consume the current token and move to the next
             self.current_token = self.lexer.advance()
@@ -143,10 +143,10 @@ class Parser:
     # program -> 'program' statements 'end_program'
     def parseProgram(self):
         if self.current_token.type == 'PROGRAM':
-            self.eat('PROGRAM')
+            self.consume('PROGRAM')
             self.parseStatements()
             if self.current_token.type == 'END_PROGRAM':
-                self.eat('END_PROGRAM')
+                self.consume('END_PROGRAM')
             else:
                 self.error("Missing 'end_program' at the end.")
         else:
@@ -163,7 +163,7 @@ class Parser:
         ttype = self.current_token.type
         if ttype == 'IDENTIFIER':
             self.parseAssignment()
-            self.eat('SEMICOLON')
+            self.consume('SEMICOLON')
         elif ttype == 'IF':
             self.parseIfStatement()
         elif ttype == 'LOOP':
@@ -173,82 +173,82 @@ class Parser:
 
     # assignment -> IDENTIFIER '=' expression
     def parseAssignment(self):
-        self.eat('IDENTIFIER')
-        self.eat('ASSIGN')
+        self.consume('IDENTIFIER')
+        self.consume('ASSIGN')
         self.parseExpression()
 
     # if_statement -> 'if' '(' logic_expr ')' statements 'end_if'
     def parseIfStatement(self):
-        self.eat('IF')
-        self.eat('LPAREN')
+        self.consume('IF')
+        self.consume('LPAREN')
         self.parseLogicExpr()
-        self.eat('RPAREN')
+        self.consume('RPAREN')
         self.parseStatements()
-        self.eat('END_IF')
+        self.consume('END_IF')
 
     # loop_statement -> 'loop' '(' IDENTIFIER '=' (IDENTIFIER|NUMBER) ':' (IDENTIFIER|NUMBER) ')' statements 'end_loop'
     def parseLoopStatement(self):
-        self.eat('LOOP')
-        self.eat('LPAREN')
-        self.eat('IDENTIFIER')
-        self.eat('ASSIGN')
+        self.consume('LOOP')
+        self.consume('LPAREN')
+        self.consume('IDENTIFIER')
+        self.consume('ASSIGN')
         if self.current_token.type in ('IDENTIFIER', 'NUMBER'):
-            self.eat(self.current_token.type)
+            self.consume(self.current_token.type)
         else:
             self.error("Expected IDENTIFIER or NUMBER in loop start value.")
-        self.eat('COLON')
+        self.consume('COLON')
         if self.current_token.type in ('IDENTIFIER', 'NUMBER'):
-            self.eat(self.current_token.type)
+            self.consume(self.current_token.type)
         else:
             self.error("Expected IDENTIFIER or NUMBER in loop end value.")
-        self.eat('RPAREN')
+        self.consume('RPAREN')
         self.parseStatements()
-        self.eat('END_LOOP')
+        self.consume('END_LOOP')
 
     # logic_expr -> comparison { ('&&' | '||') comparison }
     def parseLogicExpr(self):
         self.parseComparison()
         while self.current_token.type in ('AND', 'OR'):
-            self.eat(self.current_token.type)
+            self.consume(self.current_token.type)
             self.parseComparison()
 
     # comparison -> (IDENTIFIER|NUMBER) (==|!=|>|<|>=|<=) (IDENTIFIER|NUMBER)
     def parseComparison(self):
         if self.current_token.type not in ('IDENTIFIER','NUMBER'):
             self.error("Expected IDENTIFIER or NUMBER in comparison.")
-        self.eat(self.current_token.type)
+        self.consume(self.current_token.type)
 
         if self.current_token.type not in ('EQ','NEQ','GT','LT','GE','LE'):
             self.error("Expected a comparison operator (==, !=, >, <, >=, <=).")
-        self.eat(self.current_token.type)
+        self.consume(self.current_token.type)
 
         if self.current_token.type not in ('IDENTIFIER','NUMBER'):
             self.error("Expected IDENTIFIER or NUMBER in comparison.")
-        self.eat(self.current_token.type)
+        self.consume(self.current_token.type)
 
     # expression -> term { ('+' | '-') term }
     def parseExpression(self):
         self.parseTerm()
         while self.current_token.type in ('PLUS','MINUS'):
-            self.eat(self.current_token.type)
+            self.consume(self.current_token.type)
             self.parseTerm()
 
     # term -> factor { ('*'|'/'|'%') factor }
     def parseTerm(self):
         self.parseFactor()
         while self.current_token.type in ('MUL','DIV','MOD'):
-            self.eat(self.current_token.type)
+            self.consume(self.current_token.type)
             self.parseFactor()
 
     # factor -> '(' expression ')' | IDENTIFIER | NUMBER
     def parseFactor(self):
         ttype = self.current_token.type
         if ttype == 'LPAREN':
-            self.eat('LPAREN')
+            self.consume('LPAREN')
             self.parseExpression()
-            self.eat('RPAREN')
+            self.consume('RPAREN')
         elif ttype in ('IDENTIFIER', 'NUMBER'):
-            self.eat(ttype)
+            self.consume(ttype)
         else:
             self.error("Expected '(', IDENTIFIER, or NUMBER in factor.")
 
