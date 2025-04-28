@@ -2,9 +2,9 @@ import re
 import tkinter as tk
 from tkinter import scrolledtext, messagebox
 
-# -----------------------------------------------------------------------------
+# #############################################################################
 # 1) TOKEN DEFINITIONS
-# -----------------------------------------------------------------------------
+# ##############################################################################
 TOKEN_SPECIFICATIONS = [
     (r'//.*',             'COMMENT'),       # Single-line comment
     (r'\bprogram\b',      'PROGRAM'),       # 'program'
@@ -13,7 +13,7 @@ TOKEN_SPECIFICATIONS = [
     (r'\bend_if\b',       'END_IF'),        # 'end_if'
     (r'\bloop\b',         'LOOP'),          # 'loop'
     (r'\bend_loop\b',     'END_LOOP'),      # 'end_loop'
-    (r'\b[0-9]+\b',       'NUMBER'),        # Numeric literal
+    (r'\b[0-9]+\b',       'NUMBER'),        # Number
     (r'\b[a-zA-Z]\w*\b',  'IDENTIFIER'),    # Alphanumeric identifier
     (r'==',               'EQ'),            # ==
     (r'!=',               'NEQ'),           # !=
@@ -46,11 +46,10 @@ class Token:
     def __repr__(self):
         return f"Token({self.type}, {self.value}, pos={self.position})"
 
-# -----------------------------------------------------------------------------
+# #############################################################################
 # 2) LEXER
-# -----------------------------------------------------------------------------
+# #############################################################################
 class Lexer:
-    """Regex-based lexer generating a list of tokens from input text."""
     def __init__(self, text):
         self.text = text
         self.tokens = []
@@ -78,18 +77,23 @@ class Lexer:
         self.tokens.append(Token('EOF', 'EOF', idx))
 
     def peek(self):
+        """Return the current token without consuming it."""
         if self.position < len(self.tokens):
             return self.tokens[self.position]
         return None
 
     def advance(self):
-        token = self.peek()
+        """
+        Move to the next token and return it.
+        This fix ensures we actually consume the current token
+        and advance to the subsequent token.
+        """
         self.position += 1
-        return token
+        return self.peek()
 
-# -----------------------------------------------------------------------------
+# #############################################################################
 # 3) RECURSIVE DESCENT PARSER
-# -----------------------------------------------------------------------------
+# #############################################################################
 
 class ParserError(Exception):
     pass
@@ -122,6 +126,7 @@ class Parser:
 
     def eat(self, token_type):
         if self.current_token.type == token_type:
+            # Consume the current token and move to the next
             self.current_token = self.lexer.advance()
         else:
             self.error(f"Expected token type '{token_type}' but got '{self.current_token.type}'")
@@ -247,9 +252,9 @@ class Parser:
         else:
             self.error("Expected '(', IDENTIFIER, or NUMBER in factor.")
 
-# -----------------------------------------------------------------------------
+# #############################################################################
 # 4) TKINTER GUI
-# -----------------------------------------------------------------------------
+# #############################################################################
 class ParserGUI:
     def __init__(self, master):
         self.master = master
@@ -274,7 +279,7 @@ class ParserGUI:
         try:
             lexer = Lexer(source_code)
             parser = Parser(lexer)
-            parser.parse()  # <<< KEY: we call parse() at the top-level
+            parser.parse()
             messagebox.showinfo("Result", "Parsing succeeded! No errors.")
         except (ParserError, ValueError) as e:
             messagebox.showerror("Error", str(e))
@@ -282,9 +287,9 @@ class ParserGUI:
     def on_clear(self):
         self.text_area.delete("1.0", tk.END)
 
-# -----------------------------------------------------------------------------
+# #############################################################################
 # 5) MAIN
-# -----------------------------------------------------------------------------
+# #############################################################################
 if __name__ == "__main__":
     root = tk.Tk()
     app = ParserGUI(root)
