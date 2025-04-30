@@ -44,12 +44,12 @@ class Parser:
     def parse(self):
         self.parseProgram()
         if self.current_token.type != 'EOF':
-            self.error("Extra tokens after 'end_program'.")
+            self.error("Extra token(s) after 'end_program'.")
         return True
 
     def parseProgram(self):
         if self.current_token.type != 'PROGRAM':
-            self.error("Program must start with 'program'.")
+            self.error("Program must start with 'program' token.")
         self.consume('PROGRAM')
         self.parseStatements()
         self.consume('END_PROGRAM')
